@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sync"
 )
 
 // FileItems struct holds all files with the same hash
@@ -15,8 +16,11 @@ type FileItems struct {
 	Files []string
 }
 
-// FileStorage holds all information about duplicate files
-type FileStorage map[string]FileItems
+// GlobalFileStorage holds all information about duplicate files
+var GlobalFileStorage = struct {
+	sync.RWMutex
+	FileStorage map[string]FileItems
+}{FileStorage: make(map[string]FileItems)}
 
 func md5sum(filePath string) (result string, err error) {
 	file, err := os.Open(filePath)
@@ -25,23 +29,39 @@ func md5sum(filePath string) (result string, err error) {
 		log.Printf("md5sum: can't open file %filePath. Error: %v", err)
 		return
 	}
-
 	defer file.Close()
-
 	hash := md5.New()
 	_, err = io.Copy(hash, file)
 	if err != nil {
 		fmt.Print(err)
 		log.Printf("md5sum: can't open file %filePath. Error: %v", err)
-
 		return
 	}
-
 	result = hex.EncodeToString(hash.Sum(nil))
 	return
 }
 
-func findDuplicates(directory string, filePattern string, fileStorage FileStorage) {
+func processFile(fileName string, wg *sync.WaitGroup) {
+	defer (*wg).Done()
+	hash, errHash := md5sum(fileName)
+	if errHash != nil {
+		log.Printf("Error: can't calculate hash for file %s.\n Error:%v", fileName, errHash)
+		return
+	}
+	GlobalFileStorage.Lock()
+	item, ok := GlobalFileStorage.FileStorage[hash]
+	if ok == true {
+		item.Files = append(item.Files, fileName)
+		GlobalFileStorage.FileStorage[hash] = item
+	} else {
+		var fileItems FileItems
+		fileItems.Files = append(GlobalFileStorage.FileStorage[hash].Files, fileName)
+		GlobalFileStorage.FileStorage[hash] = fileItems
+	}
+	GlobalFileStorage.Unlock()
+}
+
+func findDuplicates(directory string, filePattern string) {
 	files, err := filepath.Glob(directory + "\\" + filePattern)
 	if err != nil {
 		log.Fatalf("Error: can't scan folder %s with pattern %s.\n Error:%v", directory, filePattern, err)
@@ -49,34 +69,26 @@ func findDuplicates(directory string, filePattern string, fileStorage FileStorag
 	}
 	log.Printf("Found %d files in %s", len(files), directory)
 
+	var wg sync.WaitGroup
+	wg.Add(len(files))
 	for index := 0; index < len(files); index++ {
-		fileName := files[index]
-		hash, errHash := md5sum(fileName)
-		if errHash != nil {
-			log.Printf("Error: can't calculate hash for file %s.\n Error:%v", fileName, err)
-			continue
-		}
-		item, ok := fileStorage[hash]
-		if ok == true {
-			item.Files = append(item.Files, fileName)
-			fileStorage[hash] = item
-		} else {
-			var fileItems FileItems
-			fileItems.Files = append(fileStorage[hash].Files, fileName)
-			fileStorage[hash] = fileItems
-		}
+		go processFile(files[index], &wg)
 	}
+	wg.Wait()
 }
 
-func main() {
-	fileStorage := make(FileStorage)
-	findDuplicates("C:\\Books\\*", "*.pdf", fileStorage)
-
-	fmt.Printf("%d\n", len(fileStorage))
-
-	for k, v := range fileStorage {
+func showResults() {
+	GlobalFileStorage.Lock()
+	fmt.Printf("%d\n", len(GlobalFileStorage.FileStorage))
+	for k, v := range GlobalFileStorage.FileStorage {
 		if len(v.Files) > 1 {
 			fmt.Printf("key[%s] value[%s]\n", k, v)
 		}
 	}
+	GlobalFileStorage.Unlock()
+}
+
+func main() {
+	findDuplicates("C:\\Books\\*", "*.pdf")
+	showResults()
 }
