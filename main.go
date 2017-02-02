@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/md5"
 	"encoding/hex"
+	"flag"
 	"fmt"
 	"io"
 	"log"
@@ -25,16 +26,16 @@ var GlobalFileStorage = struct {
 func md5sum(filePath string) (result string, err error) {
 	file, err := os.Open(filePath)
 	if err != nil {
-		fmt.Print(err)
-		log.Printf("md5sum: can't open file %filePath. Error: %v", err)
+		//fmt.Print(err)
+		//log.Printf("md5sum: can't open file %filePath. Error: %v", err)
 		return
 	}
 	defer file.Close()
 	hash := md5.New()
 	_, err = io.Copy(hash, file)
 	if err != nil {
-		fmt.Print(err)
-		log.Printf("md5sum: can't open file %filePath. Error: %v", err)
+		//fmt.Print(err)
+		//log.Printf("md5sum: can't open file %filePath. Error: %v", err)
 		return
 	}
 	result = hex.EncodeToString(hash.Sum(nil))
@@ -45,7 +46,7 @@ func processFile(fileName string, wg *sync.WaitGroup) {
 	defer (*wg).Done()
 	hash, errHash := md5sum(fileName)
 	if errHash != nil {
-		log.Printf("Error: can't calculate hash for file %s.\n Error:%v", fileName, errHash)
+		//log.Printf("Error: can't calculate hash for file %s.\n Error:%v", fileName, errHash)
 		return
 	}
 	GlobalFileStorage.Lock()
@@ -62,19 +63,24 @@ func processFile(fileName string, wg *sync.WaitGroup) {
 }
 
 func findDuplicates(directory string, filePattern string) {
-	files, err := filepath.Glob(directory + "\\" + filePattern)
-	if err != nil {
-		log.Fatalf("Error: can't scan folder %s with pattern %s.\n Error:%v", directory, filePattern, err)
-		return
+	subDir := [2]string{"**", ""}
+	var files []string
+	for _, sub := range subDir {
+		dirFiles, err := filepath.Glob(directory + "\\" + sub + "\\" + filePattern)
+		if err != nil {
+			log.Fatalf("Error: can't scan folder %s with pattern %s.\n Error:%v", directory, filePattern, err)
+			return
+		}
+		log.Printf("Found %d files in %s", len(dirFiles), directory)
+		files = append(files, dirFiles...)
 	}
-	log.Printf("Found %d files in %s", len(files), directory)
-
 	var wg sync.WaitGroup
 	wg.Add(len(files))
 	for index := 0; index < len(files); index++ {
 		go processFile(files[index], &wg)
 	}
 	wg.Wait()
+
 }
 
 func showResults() {
@@ -88,7 +94,27 @@ func showResults() {
 	GlobalFileStorage.Unlock()
 }
 
+type configurationSettings struct {
+	directory   string
+	filePattern string
+}
+
+func getConfigSettings() configurationSettings {
+	var settings configurationSettings
+
+	flag.StringVar(&settings.directory, "dir", "", "-dir=C:\\downloads")
+	flag.StringVar(&settings.filePattern, "ext", "*.*", "-ext=*.pdf")
+	flag.Parse()
+
+	if len(settings.directory) <= 0 {
+		log.Fatal("Root directory is not set:-dir=C:\\downloads")
+	}
+
+	return settings
+}
+
 func main() {
-	findDuplicates("C:\\Books\\*", "*.pdf")
+	settings := getConfigSettings()
+	findDuplicates(settings.directory, settings.filePattern)
 	showResults()
 }
