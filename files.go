@@ -21,6 +21,7 @@ var GlobalDuplicateFileList = struct {
 	FileStorage map[string]FileItems
 }{FileStorage: make(map[string]FileItems)}
 
+/// GlobalFileList stores all files found
 var GlobalFileList = struct {
 	sync.RWMutex
 	FileList []string
@@ -87,15 +88,16 @@ func scanDirectory(dir string, pattern string, wg *sync.WaitGroup) {
 
 }
 
-func findDuplicates(dirList []string, filePatterns []string) {
+func findDuplicates(settings configSettings) {
 	var dirWg sync.WaitGroup
-	dirWg.Add(len(dirList) * len(filePatterns))
-	for _, dir := range dirList {
-		for _, pattern := range filePatterns {
+	dirWg.Add(len(settings.dirList) * len(settings.filePatterns))
+	for _, dir := range settings.dirList {
+		for _, pattern := range settings.filePatterns {
 			go scanDirectory(dir, pattern, &dirWg)
 		}
 	}
 	dirWg.Wait()
+
 	var fileWg sync.WaitGroup
 	fileWg.Add(len(GlobalFileList.FileList))
 	for index := 0; index < len(GlobalFileList.FileList); index++ {

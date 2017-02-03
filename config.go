@@ -6,13 +6,13 @@ import (
 	"strings"
 )
 
-type configurationSettings struct {
+type configSettings struct {
 	dirList      []string
 	filePatterns []string
 }
 
-func getConfigSettings() configurationSettings {
-	var settings configurationSettings
+func readSettings() configSettings {
+	var settings configSettings
 	var dirs string
 	var files string
 	flag.StringVar(&dirs, "dir", "", "-dir=dir,dir2")
