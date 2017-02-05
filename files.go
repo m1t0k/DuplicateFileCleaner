@@ -4,7 +4,7 @@ import (
 	"crypto/md5"
 	"encoding/hex"
 	"io"
-	"log"
+	_ "log"
 	"os"
 	"sync"
 )
@@ -30,7 +30,7 @@ func md5sum(filePath string) (result string, err error) {
 	file, err := os.Open(filePath)
 	if err != nil {
 		//fmt.Print(err)
-		log.Printf("md5sum: can't open file %filePath. Error: %v", err)
+		//log.Printf("md5sum: can't open file %filePath. Error: %v", err)
 		return
 	}
 	defer file.Close()
@@ -38,7 +38,7 @@ func md5sum(filePath string) (result string, err error) {
 	_, err = io.Copy(hash, file)
 	if err != nil {
 		//fmt.Print(err)
-		log.Printf("md5sum: can't open file %filePath. Error: %v", err)
+		//log.Printf("md5sum: can't open file %filePath. Error: %v", err)
 		return
 	}
 	result = hex.EncodeToString(hash.Sum(nil))

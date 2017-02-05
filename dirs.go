@@ -17,7 +17,7 @@ func scanDirectory(rootDir string, patterns []string, wg *sync.WaitGroup) {
 
 	for _, dir := range dirs {
 		if dir.IsDir() {
-			log.Printf("Start scan in directory %s", dir.Name())
+			//log.Printf("Start scan in directory %s", dir.Name())
 			(*wg).Add(1)
 			go scanDirectory(filepath.Join(rootDir, dir.Name()), patterns, wg)
 		}
@@ -43,11 +43,12 @@ func findDuplicates(settings configSettings) {
 	for _, rootDir := range settings.dirList {
 		dirs, err := ioutil.ReadDir(rootDir)
 		if err != nil {
+			log.Print(err)
 		}
 		for _, dir := range dirs {
 			if dir.IsDir() {
 				dirWg.Add(1)
-				log.Printf("Start scan in directory %s", dir.Name())
+				//log.Printf("Start scan in directory %s", dir.Name())
 				go scanDirectory(filepath.Join(rootDir, dir.Name()), settings.filePatterns, &dirWg)
 			}
 		}
